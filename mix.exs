@@ -28,7 +28,8 @@ defmodule Supabase.Functions.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:supabase_potion, "~> 0.3"},
+      {:supabase_potion, "~> 0.6"},
+      {:mox, "~> 1.0", only: :test},
       {:ex_doc, ">= 0.0.0", only: [:dev], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.3", only: [:dev, :test], runtime: false}
