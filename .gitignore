@@ -23,3 +23,5 @@ supabase_functions-*.tar
 /tmp/
 
 /priv/plts/
+
+.env.dev
