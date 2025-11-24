@@ -25,10 +25,18 @@ defmodule Supabase.Functions.MixProject do
     ]
   end
 
+  defp supabase_dep do
+    if System.get_env("SUPABASE_LOCAL") == "1" do
+      {:supabase_potion, path: "../supabase-ex"}
+    else
+      {:supabase_potion, "~> 0.6"}
+    end
+  end
+
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:supabase_potion, "~> 0.6"},
+      supabase_dep(),
       {:mox, "~> 1.0", only: :test},
       {:ex_doc, ">= 0.0.0", only: [:dev], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
