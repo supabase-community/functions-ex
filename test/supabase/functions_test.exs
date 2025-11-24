@@ -172,5 +172,21 @@ defmodule Supabase.FunctionsTest do
 
       assert response.body == %{"success" => true}
     end
+
+    test "handles relay errors", %{client: client} do
+      expect(@mock, :stream, fn _request, _ ->
+        {:ok,
+         %Finch.Response{
+           status: 200,
+           headers: %{"content-type" => "application/json", "x-relay-error" => "true"},
+           body: ~s({"error": "Relay Error"})
+         }}
+      end)
+
+      assert {:error, error} =
+               Functions.invoke(client, "test-function", http_client: @mock)
+
+      assert error.code == :relay_error
+    end
   end
 end
