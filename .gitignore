@@ -25,3 +25,5 @@ supabase_functions-*.tar
 /priv/plts/
 
 .env.dev
+/.claude/
+/.expert/

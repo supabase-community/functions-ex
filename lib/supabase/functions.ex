@@ -77,6 +77,7 @@ defmodule Supabase.Functions do
     |> Request.with_headers(custom_headers)
     |> execute_request(opts[:on_response])
     |> maybe_decode_body()
+    |> handle_response()
   end
 
   defp maybe_define_region(req, nil), do: req
@@ -128,4 +129,20 @@ defmodule Supabase.Functions do
   defp decoder_from_content_type(_) do
     fn body -> {:ok, Function.identity(body)} end
   end
+
+  defp handle_response({:ok, %Response{} = resp}) do
+    if Response.get_header(resp, "x-relay-error") == "true" do
+      {:error,
+       Supabase.Error.new(
+         service: :functions,
+         code: :relay_error,
+         message: "Relay Error invoking the Edge Function",
+         metadata: resp
+       )}
+    else
+      {:ok, resp}
+    end
+  end
+
+  defp handle_response(other), do: other
 end
