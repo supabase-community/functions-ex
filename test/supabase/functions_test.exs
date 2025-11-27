@@ -34,7 +34,7 @@ defmodule Supabase.FunctionsTest do
     end
 
     test "handles text response content type", %{client: client} do
-      expect(@mock, :stream, fn _request, _ ->
+      expect(@mock, :stream, fn _request, _opts ->
         {:ok,
          %Finch.Response{
            status: 200,
@@ -50,7 +50,7 @@ defmodule Supabase.FunctionsTest do
     test "sets appropriate content-type for binary data", %{client: client} do
       binary_data = <<0, 1, 2, 3>>
 
-      expect(@mock, :stream, fn request, _ ->
+      expect(@mock, :stream, fn request, _opts ->
         assert Request.get_header(request, "content-type") == "application/octet-stream"
         assert request.body == binary_data
 
@@ -71,7 +71,7 @@ defmodule Supabase.FunctionsTest do
     test "sets appropriate content-type for JSON data", %{client: client} do
       json_data = %{test: "data"}
 
-      expect(@mock, :stream, fn request, _ ->
+      expect(@mock, :stream, fn request, _opts ->
         assert Request.get_header(request, "content-type") == "application/json"
         # fetcher will io encode it
         assert {:ok, _} = Jason.decode(request.body)
@@ -93,7 +93,7 @@ defmodule Supabase.FunctionsTest do
     test "handles custom headers", %{client: client} do
       custom_headers = %{"x-custom-header" => "test-value"}
 
-      expect(@mock, :stream, fn request, _ ->
+      expect(@mock, :stream, fn request, _opts ->
         assert Request.get_header(request, "x-custom-header") == "test-value"
 
         {:ok,
@@ -116,7 +116,7 @@ defmodule Supabase.FunctionsTest do
     test "handles streaming responses with custom handler", %{client: client} do
       chunks = ["chunk1", "chunk2", "chunk3"]
 
-      expect(@mock, :stream, fn _request, on_response, _ ->
+      expect(@mock, :stream, fn _request, on_response, _opts ->
         Enum.each(chunks, fn chunk ->
           on_response.({200, %{"content-type" => "text/plain"}, [chunk]})
         end)
@@ -141,7 +141,7 @@ defmodule Supabase.FunctionsTest do
     end
 
     test "handles error responses", %{client: client} do
-      expect(@mock, :stream, fn _request, _ ->
+      expect(@mock, :stream, fn _request, _opts ->
         {:ok,
          %Finch.Response{
            status: 404,
@@ -156,7 +156,7 @@ defmodule Supabase.FunctionsTest do
     end
 
     test "uses custom HTTP method when specified", %{client: client} do
-      expect(@mock, :stream, fn request, _ ->
+      expect(@mock, :stream, fn request, _opts ->
         assert request.method == :get
 
         {:ok,
@@ -174,7 +174,7 @@ defmodule Supabase.FunctionsTest do
     end
 
     test "handles relay errors", %{client: client} do
-      expect(@mock, :stream, fn _request, _ ->
+      expect(@mock, :stream, fn _request, _opts ->
         {:ok,
          %Finch.Response{
            status: 200,
@@ -187,6 +187,71 @@ defmodule Supabase.FunctionsTest do
                Functions.invoke(client, "test-function", http_client: @mock)
 
       assert error.code == :relay_error
+    end
+
+    test "passes timeout option to underlying HTTP client", %{client: client} do
+      expect(@mock, :stream, fn _request, opts ->
+        assert Keyword.get(opts, :receive_timeout) == 5_000
+
+        {:ok,
+         %Finch.Response{
+           status: 200,
+           headers: %{"content-type" => "application/json"},
+           body: ~s({"success": true})
+         }}
+      end)
+
+      assert {:ok, response} =
+               Functions.invoke(client, "test-function", timeout: 5_000, http_client: @mock)
+
+      assert response.body == %{"success" => true}
+    end
+
+    test "uses default timeout when not specified", %{client: client} do
+      expect(@mock, :stream, fn _request, opts ->
+        assert Keyword.get(opts, :receive_timeout) == 15_000
+
+        {:ok,
+         %Finch.Response{
+           status: 200,
+           headers: %{"content-type" => "application/json"},
+           body: ~s({"success": true})
+         }}
+      end)
+
+      assert {:ok, response} =
+               Functions.invoke(client, "test-function", http_client: @mock)
+
+      assert response.body == %{"success" => true}
+    end
+
+    test "timeout works with streaming response", %{client: client} do
+      chunks = ["chunk1", "chunk2"]
+
+      expect(@mock, :stream, fn _request, on_response, opts ->
+        assert Keyword.get(opts, :receive_timeout) == 2_000
+
+        Enum.each(chunks, fn chunk ->
+          on_response.({200, %{"content-type" => "text/plain"}, [chunk]})
+        end)
+
+        {:ok, Enum.join(chunks)}
+      end)
+
+      on_response = fn {status, headers, body} ->
+        assert status == 200
+        assert headers["content-type"] == "text/plain"
+        {:ok, body}
+      end
+
+      assert {:ok, response} =
+               Functions.invoke(client, "test-function",
+                 on_response: on_response,
+                 timeout: 2_000,
+                 http_client: @mock
+               )
+
+      assert response == "chunk1chunk2"
     end
   end
 end
