@@ -24,6 +24,7 @@ defmodule Supabase.Functions do
   - `method`: The HTTP method of the request.
   - `region`: The Region to invoke the function in.
   - `on_response`: The custom response handler for response streaming.
+  - `timeout`: The timeout in milliseconds for the request. Defaults to 15 seconds.
   """
   @type opt ::
           {:body, Fetcher.body()}
@@ -31,6 +32,7 @@ defmodule Supabase.Functions do
           | {:method, Fetcher.method()}
           | {:region, region}
           | {:on_response, on_response}
+          | {:timeout, pos_integer()}
 
   @type on_response :: ({Fetcher.status(), Fetcher.headers(), body :: Enumerable.t()} ->
                           Supabase.result(Response.t()))
@@ -59,11 +61,35 @@ defmodule Supabase.Functions do
 
   - When you pass in a body to your function, we automatically attach the `Content-Type` header automatically. If it doesn't match any of these types we assume the payload is json, serialize it and attach the `Content-Type` header as `application/json`. You can override this behavior by passing in a `Content-Type` header of your own.
   - Responses are automatically parsed as json depending on the Content-Type header sent by your function. Responses are parsed as text by default.
+
+  ## Timeout Support
+
+  You can set a timeout for function invocations using the `timeout` option. This sets both the 
+  receive timeout (for individual chunks) and request timeout (for the complete response):
+
+      # Timeout after 5 seconds
+      Supabase.Functions.invoke(client, "my-function", timeout: 5_000)
+      
+  If no timeout is specified, requests will timeout after 15 seconds by default.
+
+  ## Examples
+
+      # Basic invocation
+      {:ok, response} = Supabase.Functions.invoke(client, "my-function")
+      
+      # With timeout
+      {:ok, response} = Supabase.Functions.invoke(client, "my-function", timeout: 10_000)
+      
+      # With body and timeout  
+      {:ok, response} = Supabase.Functions.invoke(client, "my-function", 
+        body: %{data: "value"}, 
+        timeout: 30_000)
   """
   @spec invoke(Client.t(), function :: String.t(), opts) :: Supabase.result(Response.t())
   def invoke(%Client{} = client, name, opts \\ []) when is_binary(name) do
     method = opts[:method] || :post
     custom_headers = opts[:headers] || %{}
+    timeout = opts[:timeout] || 15_000
 
     client
     |> Request.new(decode_body?: false)
@@ -75,7 +101,7 @@ defmodule Supabase.Functions do
     |> Request.with_body_decoder(nil)
     |> maybe_define_content_type(opts[:body])
     |> Request.with_headers(custom_headers)
-    |> execute_request(opts[:on_response])
+    |> execute_request(opts[:on_response], timeout)
     |> maybe_decode_body()
     |> handle_response()
   end
@@ -103,12 +129,13 @@ defmodule Supabase.Functions do
 
   defp raw_binary?(bin), do: not String.printable?(bin)
 
-  defp execute_request(req, on_response) do
+  defp execute_request(req, on_response, timeout) do
+    opts = [receive_timeout: timeout, request_timeout: timeout]
+
     if on_response do
-      Fetcher.stream(req, on_response)
+      Fetcher.stream(req, on_response, opts)
     else
-      # consume all the response, answers eagerly
-      Fetcher.stream(req)
+      Fetcher.stream(req, nil, opts)
     end
   end
 

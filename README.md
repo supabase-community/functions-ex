@@ -88,3 +88,39 @@ end
 Supabase.Functions.invoke(client, "stream-data", on_response: on_response)
 # :ok
 ```
+
+## Timeout Support
+
+You can control the timeout for function invocations using the `timeout` option. If no timeout is specified, requests will timeout after 15 seconds by default.
+
+```elixir
+client = Supabase.init_client!("SUPABASE_URL", "SUPABASE_KEY")
+
+# Basic invocation with default timeout (15 seconds)
+{:ok, response} = Supabase.Functions.invoke(client, "my-function")
+
+# Custom timeout (5 seconds)
+{:ok, response} = Supabase.Functions.invoke(client, "my-function", timeout: 5_000)
+
+# Timeout with body and headers  
+{:ok, response} = Supabase.Functions.invoke(client, "my-function", 
+  body: %{data: "value"}, 
+  headers: %{"x-custom" => "header"},
+  timeout: 30_000)
+
+# Streaming with timeout
+on_response = fn {status, headers, body} ->
+  # Handle streaming response
+  {:ok, body}
+end
+
+{:ok, response} = Supabase.Functions.invoke(client, "my-function",
+  on_response: on_response,
+  timeout: 10_000)
+```
+
+This feature provides:
+- **Request cancellation**: Long-running requests will timeout and be cancelled
+- **Better resource management**: Prevents hanging connections
+- **Comprehensive timeout coverage**: Sets both receive timeout (per-chunk) and request timeout (complete response)
+- **Feature parity with JS client**: Matches timeout functionality in the JavaScript SDK
