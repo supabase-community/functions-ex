@@ -122,4 +122,5 @@ end
 This feature provides:
 - **Request cancellation**: Long-running requests will timeout and be cancelled
 - **Better resource management**: Prevents hanging connections
+- **Comprehensive timeout coverage**: Sets both receive timeout (per-chunk) and request timeout (complete response)
 - **Feature parity with JS client**: Matches timeout functionality in the JavaScript SDK

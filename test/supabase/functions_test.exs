@@ -192,6 +192,7 @@ defmodule Supabase.FunctionsTest do
     test "passes timeout option to underlying HTTP client", %{client: client} do
       expect(@mock, :stream, fn _request, opts ->
         assert Keyword.get(opts, :receive_timeout) == 5_000
+        assert Keyword.get(opts, :request_timeout) == 5_000
 
         {:ok,
          %Finch.Response{
@@ -210,6 +211,7 @@ defmodule Supabase.FunctionsTest do
     test "uses default timeout when not specified", %{client: client} do
       expect(@mock, :stream, fn _request, opts ->
         assert Keyword.get(opts, :receive_timeout) == 15_000
+        assert Keyword.get(opts, :request_timeout) == 15_000
 
         {:ok,
          %Finch.Response{
@@ -230,6 +232,7 @@ defmodule Supabase.FunctionsTest do
 
       expect(@mock, :stream, fn _request, on_response, opts ->
         assert Keyword.get(opts, :receive_timeout) == 2_000
+        assert Keyword.get(opts, :request_timeout) == 2_000
 
         Enum.each(chunks, fn chunk ->
           on_response.({200, %{"content-type" => "text/plain"}, [chunk]})

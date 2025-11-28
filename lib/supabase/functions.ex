@@ -64,7 +64,8 @@ defmodule Supabase.Functions do
 
   ## Timeout Support
 
-  You can set a timeout for function invocations using the `timeout` option:
+  You can set a timeout for function invocations using the `timeout` option. This sets both the 
+  receive timeout (for individual chunks) and request timeout (for the complete response):
 
       # Timeout after 5 seconds
       Supabase.Functions.invoke(client, "my-function", timeout: 5_000)
@@ -129,7 +130,7 @@ defmodule Supabase.Functions do
   defp raw_binary?(bin), do: not String.printable?(bin)
 
   defp execute_request(req, on_response, timeout) do
-    opts = [receive_timeout: timeout]
+    opts = [receive_timeout: timeout, request_timeout: timeout]
 
     if on_response do
       Fetcher.stream(req, on_response, opts)
