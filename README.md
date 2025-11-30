@@ -124,3 +124,41 @@ This feature provides:
 - **Better resource management**: Prevents hanging connections
 - **Comprehensive timeout coverage**: Sets both receive timeout (per-chunk) and request timeout (complete response)
 - **Feature parity with JS client**: Matches timeout functionality in the JavaScript SDK
+
+## Dynamic Auth Token Updates
+
+You can update authorization tokens dynamically using two approaches, providing feature parity with the JavaScript client's `setAuth(token)` method:
+
+### Option 1: Functional Update
+
+Create a new client with an updated auth token:
+
+```elixir
+client = Supabase.init_client!("SUPABASE_URL", "SUPABASE_KEY")
+
+# Update auth token functionally
+updated_client = Supabase.Functions.update_auth(client, "new_jwt_token")
+{:ok, response} = Supabase.Functions.invoke(updated_client, "my-function")
+```
+
+### Option 2: Per-Request Override
+
+Override the authorization token for a specific request:
+
+```elixir
+client = Supabase.init_client!("SUPABASE_URL", "SUPABASE_KEY")
+
+# Use a different token for this request only
+{:ok, response} = Supabase.Functions.invoke(client, "my-function", auth: "user_jwt_token")
+
+# Original client remains unchanged for subsequent calls
+{:ok, response2} = Supabase.Functions.invoke(client, "another-function")
+```
+
+### Benefits
+
+- **Token rotation support**: Easily update tokens without recreating clients
+- **Better performance**: Avoid the overhead of creating new client instances
+- **Flexibility**: Use different tokens per request or update client globally
+- **Feature parity**: Matches the JavaScript client's `setAuth()` functionality
+- **Immutability**: Original client instances remain unchanged with functional updates

@@ -25,6 +25,7 @@ defmodule Supabase.Functions do
   - `region`: The Region to invoke the function in.
   - `on_response`: The custom response handler for response streaming.
   - `timeout`: The timeout in milliseconds for the request. Defaults to 15 seconds.
+  - `auth`: Override the authorization token for this request.
   """
   @type opt ::
           {:body, Fetcher.body()}
@@ -33,6 +34,7 @@ defmodule Supabase.Functions do
           | {:region, region}
           | {:on_response, on_response}
           | {:timeout, pos_integer()}
+          | {:auth, String.t()}
 
   @type on_response :: ({Fetcher.status(), Fetcher.headers(), body :: Enumerable.t()} ->
                           Supabase.result(Response.t()))
@@ -55,12 +57,43 @@ defmodule Supabase.Functions do
           | :"eu-central-1"
 
   @doc """
+  Updates the access token for a client
+
+  Creates a new client instance with the updated access token. This provides
+  feature parity with the JavaScript client's `setAuth(token)` method.
+
+  ## Examples
+
+      # Update auth token functionally
+      new_client = Supabase.Functions.update_auth(client, "new_token")
+      {:ok, response} = Supabase.Functions.invoke(new_client, "my-function")
+
+  """
+  @spec update_auth(Client.t(), String.t()) :: Client.t()
+  def update_auth(%Client{} = client, token) when is_binary(token) do
+    %{client | access_token: token}
+  end
+
+  @doc """
   Invokes a function
 
   Invoke a Supabase Edge Function.
 
   - When you pass in a body to your function, we automatically attach the `Content-Type` header automatically. If it doesn't match any of these types we assume the payload is json, serialize it and attach the `Content-Type` header as `application/json`. You can override this behavior by passing in a `Content-Type` header of your own.
   - Responses are automatically parsed as json depending on the Content-Type header sent by your function. Responses are parsed as text by default.
+
+  ## Authentication
+
+  You can override the authorization token for a specific request using the `auth` option:
+
+      # Use a different token for this request
+      {:ok, response} = Supabase.Functions.invoke(client, "my-function", auth: "new_token")
+
+  Alternatively, you can update the client's auth token functionally:
+
+      # Update the client's token
+      new_client = Supabase.Functions.update_auth(client, "new_token")
+      {:ok, response} = Supabase.Functions.invoke(new_client, "my-function")
 
   ## Timeout Support
 
@@ -84,6 +117,9 @@ defmodule Supabase.Functions do
       {:ok, response} = Supabase.Functions.invoke(client, "my-function", 
         body: %{data: "value"}, 
         timeout: 30_000)
+
+      # With custom auth token
+      {:ok, response} = Supabase.Functions.invoke(client, "my-function", auth: "custom_token")
   """
   @spec invoke(Client.t(), function :: String.t(), opts) :: Supabase.result(Response.t())
   def invoke(%Client{} = client, name, opts \\ []) when is_binary(name) do
@@ -91,7 +127,14 @@ defmodule Supabase.Functions do
     custom_headers = opts[:headers] || %{}
     timeout = opts[:timeout] || 15_000
 
-    client
+    # Handle auth token override
+    effective_client =
+      case opts[:auth] do
+        nil -> client
+        auth_token when is_binary(auth_token) -> update_auth(client, auth_token)
+      end
+
+    effective_client
     |> Request.new(decode_body?: false)
     |> Request.with_functions_url(name)
     |> Request.with_method(method)

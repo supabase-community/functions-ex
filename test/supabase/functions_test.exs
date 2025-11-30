@@ -257,4 +257,147 @@ defmodule Supabase.FunctionsTest do
       assert response == "chunk1chunk2"
     end
   end
+
+  describe "update_auth/2" do
+    test "returns a new client with updated access token", %{client: client} do
+      new_token = "new_test_token"
+      updated_client = Functions.update_auth(client, new_token)
+
+      assert updated_client.access_token == new_token
+      # Original client should remain unchanged
+      assert client.access_token != new_token
+      # All other fields should remain the same
+      assert updated_client.base_url == client.base_url
+      assert updated_client.api_key == client.api_key
+    end
+
+    test "updated client works with invoke/3", %{client: client} do
+      new_token = "updated_token"
+
+      expect(@mock, :stream, fn request, _opts ->
+        assert Request.get_header(request, "authorization") == "Bearer #{new_token}"
+
+        {:ok,
+         %Finch.Response{
+           status: 200,
+           headers: %{"content-type" => "application/json"},
+           body: ~s({"success": true})
+         }}
+      end)
+
+      updated_client = Functions.update_auth(client, new_token)
+
+      assert {:ok, response} =
+               Functions.invoke(updated_client, "test-function", http_client: @mock)
+
+      assert response.body == %{"success" => true}
+    end
+  end
+
+  describe "auth option in invoke/3" do
+    test "overrides authorization header with custom token", %{client: client} do
+      custom_token = "custom_auth_token"
+
+      expect(@mock, :stream, fn request, _opts ->
+        assert Request.get_header(request, "authorization") == "Bearer #{custom_token}"
+
+        {:ok,
+         %Finch.Response{
+           status: 200,
+           headers: %{"content-type" => "application/json"},
+           body: ~s({"authorized": true})
+         }}
+      end)
+
+      assert {:ok, response} =
+               Functions.invoke(client, "test-function", auth: custom_token, http_client: @mock)
+
+      assert response.body == %{"authorized" => true}
+    end
+
+    test "works with other options combined", %{client: client} do
+      custom_token = "combined_auth_token"
+      custom_headers = %{"x-custom" => "value"}
+      body_data = %{test: "data"}
+
+      expect(@mock, :stream, fn request, _opts ->
+        assert Request.get_header(request, "authorization") == "Bearer #{custom_token}"
+        assert Request.get_header(request, "x-custom") == "value"
+        assert Request.get_header(request, "content-type") == "application/json"
+
+        {:ok,
+         %Finch.Response{
+           status: 200,
+           headers: %{"content-type" => "application/json"},
+           body: ~s({"success": true})
+         }}
+      end)
+
+      assert {:ok, response} =
+               Functions.invoke(client, "test-function",
+                 auth: custom_token,
+                 headers: custom_headers,
+                 body: body_data,
+                 http_client: @mock
+               )
+
+      assert response.body == %{"success" => true}
+    end
+
+    test "original client remains unchanged after auth override", %{client: client} do
+      original_token = client.access_token
+      custom_token = "temporary_override_token"
+
+      expect(@mock, :stream, fn request, _opts ->
+        assert Request.get_header(request, "authorization") == "Bearer #{custom_token}"
+
+        {:ok,
+         %Finch.Response{
+           status: 200,
+           headers: %{"content-type" => "application/json"},
+           body: ~s({"success": true})
+         }}
+      end)
+
+      assert {:ok, _response} =
+               Functions.invoke(client, "test-function", auth: custom_token, http_client: @mock)
+
+      # Original client should be unchanged
+      assert client.access_token == original_token
+    end
+
+    test "nil auth option uses original client token", %{client: client} do
+      expect(@mock, :stream, fn request, _opts ->
+        assert Request.get_header(request, "authorization") == "Bearer #{client.access_token}"
+
+        {:ok,
+         %Finch.Response{
+           status: 200,
+           headers: %{"content-type" => "application/json"},
+           body: ~s({"success": true})
+         }}
+      end)
+
+      assert {:ok, response} =
+               Functions.invoke(client, "test-function", auth: nil, http_client: @mock)
+
+      assert response.body == %{"success" => true}
+    end
+
+    test "empty auth option uses original client token", %{client: client} do
+      expect(@mock, :stream, fn request, _opts ->
+        assert Request.get_header(request, "authorization") == "Bearer #{client.access_token}"
+
+        {:ok,
+         %Finch.Response{
+           status: 200,
+           headers: %{"content-type" => "application/json"},
+           body: ~s({"success": true})
+         }}
+      end)
+
+      assert {:ok, response} = Functions.invoke(client, "test-function", http_client: @mock)
+      assert response.body == %{"success" => true}
+    end
+  end
 end
