@@ -2,6 +2,10 @@
 
 [Edge Functions](https://supabase.com/docs/guides/functions) client implementation for the [Supabase Potion](https://github.com/supabase-community/supabase-ex) SDK in Elixir
 
+## Compatibility
+
+We support the latest 3 stable Elixir versions.
+
 ## Installation
 
 ```elixir
