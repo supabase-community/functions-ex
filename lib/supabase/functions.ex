@@ -157,6 +157,8 @@ defmodule Supabase.Functions do
   end
 
   defp maybe_define_content_type(req, nil), do: req
+  defp maybe_define_content_type(req, {:multipart, _}), do: req
+  defp maybe_define_content_type(req, {:multipart_stream, _}), do: req
 
   defp maybe_define_content_type(req, string) when is_binary(string) do
     if raw_binary?(string) do
