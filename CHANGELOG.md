@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/supabase-community/functions-ex/compare/v0.2.0...v0.2.1) (2026-11-02)
+
+
+### Miscellaneous Chores
+
+* **nix:** migrate dev shell to beam-overlay ([166cbbc](https://github.com/supabase-community/functions-ex/commit/166cbbc1bec1d2446c864dfe0f21d0fe7240a147))
+
 ## [0.2.0](https://github.com/supabase-community/functions-ex/compare/v0.1.0...v0.2.0) (2026-07-28)
 
 
